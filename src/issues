@@ -1,0 +1,28 @@
+#!/usr/bin/python
+
+import hashlib, json
+
+defaultAuthor=None
+issueDir=None
+user=None
+host=None
+editor=None
+me=None
+
+class Issue(object):
+	def __init__(self, title, description, author=None, priority=0, assignedTo=None, tags=[]):
+		self.title=title
+		self.description=description
+		self.author=defaultAuthor if author is None else author
+		self.priority=int(priority)
+		self.assignedTo=me if assignedTo is None else assignedTo
+		self.tags=tags
+		self._isNew=True
+		self._isModified=True
+	
+	def save(self, force=False):
+		if not (self._isNew or self._isModified or force): return True
+		
+		if self._isNew:
+			#generate a unique ID
+			self.id=
