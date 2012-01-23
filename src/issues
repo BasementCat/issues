@@ -1,28 +1,115 @@
 #!/usr/bin/python
 
-import hashlib, json
+import hashlib, json, os, subprocess, time, sys
 
-defaultAuthor=None
-issueDir=None
-user=None
-host=None
-editor=None
-me=None
+issueDir='./.issues/'
+userName=subprocess.check_output(['git', 'config', '--global', '--get', 'user.name']).strip()
+userEmail=subprocess.check_output(['git', 'config', '--global', '--get', 'user.email']).strip()
+identity="%s <%s>"%(userName, userEmail)
+if os.environ.has_key('EDITOR'):
+	editor=os.environ['EDITOR']
+else:
+	try:
+		editor=subprocess.check_output(['git', 'config', '--global', '--get', 'core.editor']).strip()
+	except:
+		editor='vi'
+if not os.path.exists(issueDir):
+	try:
+		os.makedirs(issueDir)
+	except Exception as e:
+		sys.stderr.write("Could not create issues directory %s: %s\n"%(issueDir, str(e)))
+		sys.exit(1)
 
 class Issue(object):
-	def __init__(self, title, description, author=None, priority=0, assignedTo=None, tags=[]):
+	def __init__(self, title="", description="", author="", priority=0, assignedTo="", tags=[]):
 		self.title=title
 		self.description=description
-		self.author=defaultAuthor if author is None else author
+		self.author=identity if author is None else author
 		self.priority=int(priority)
-		self.assignedTo=me if assignedTo is None else assignedTo
+		self.assignedTo=identity if assignedTo is None else assignedTo
 		self.tags=tags
-		self._isNew=True
-		self._isModified=True
+		self.created=time.time()
+		self.updated=time.time()
+		self.id=None
 	
-	def save(self, force=False):
-		if not (self._isNew or self._isModified or force): return True
-		
-		if self._isNew:
-			#generate a unique ID
-			self.id=
+	def genid(self):
+		while True:
+			self.id=hashlib.sha224(identity+str(time.clock())).hexdigest()
+			if not os.path.exists(issueDir+self.id):
+				break
+	
+	def save(self):
+		if self.id is None:
+			self.genid()
+		self.updated=time.time()
+		try:
+			with open(issueDir+self.id, 'w') as f:
+				json.dump(self.__dict__, f, indent=4)
+			return True
+		except Exception as e:
+			sys.stderr.write("Cannot save to %s: %s\n"%(issueDir+self.id, str(e)))
+			return False
+
+	def edit(self):
+		import random, re
+		tempname='/tmp/issues-%08x'%(random.getrandbits(32),)
+		with open(tempname, 'w') as f:
+			f.write("""%s
+
+%s
+
+Author: %s
+Assignee: %s
+Priority: %d
+Tags: %s
+
+#Lines beginning with # are ignored.
+#The first line of your report is the title.
+#All following lines are the description of the report."""%(self.title, self.description, self.author, self.assignedTo, self.priority, ", ".join(self.tags)))
+		subprocess.call([editor, tempname])
+		with open(tempname, 'r') as f:
+			haveTitle=False
+			haveDesc=False
+			curDesc=""
+			for line in f.readlines():
+				if line[0]=="#": continue
+				match=re.match(r"^(Author|Assignee|Priority|Tags):(\s+)?(.*)$", line)
+				if match:
+					haveDesc=True
+					k, v=match.group(1, 3)
+					if k=="Assignee":
+						k="assignedTo"
+					else:
+						k=k.lower()
+					if k in ("author", "assignedTo"):
+						pass #later we'll do automatic checking so you don't have to type out the full assignee
+					elif k=="Priority":
+						v=int(v)
+					elif k=="tags":
+						v=re.split(r"[\s,]+", v)
+					setattr(self, k, v)
+				elif not haveTitle:
+					if not line.strip("\r\n"): continue
+					self.title=line.strip("\r\n")
+					haveTitle=True
+				elif not haveDesc:
+					if not line.strip("\r\n") and curDesc=="": continue
+					curDesc+=line
+			self.description=curDesc.rstrip("\r\n")
+		os.unlink(tempname)
+	
+	def __str__(self):
+		return """Issue #%s
+%s
+Reported by: %s
+Assigned to: %s
+Priority:    %d
+Tags:        %s
+
+%s
+"""%(self.id, self.title, self.author, self.assignedTo, int(self.priority), ", ".join(self.tags), self.description)
+
+i=Issue()
+i.edit()
+i.save()
+print i
