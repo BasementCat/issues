@@ -13,52 +13,66 @@ def time_local(tm=None):
 	return time.mktime(tm)
 
 def align(format, *args):
-	"""Prints the supplied arguments as defined by the format string.
-
-The following characters have special meaning in the format string:
-.        The next variable in the argument list
-%number  Element number (number) in the argument list
-|[lcr]   Each | indicates a column boundary.  If the | is followed by any of l,
-         c, or r, that indicates the alignment of that column.  The alignment
-         character can also be any of the string alignment characters that
-         string.format() accepts: <, ^, >.
-_##      Print a horizontal line made up of _ characters, optionally ## percent
-         the width of the screen.  Default width is 100%.
--##      Print a horizontal line made up of - characters, optionally ## percent
-         the width of the screen.  Default width is 100%."""
-	alignment_chars={'l': '<', 'c': '^', 'r': '>'}
-	variables=[]
-	#columns=[]
+	variables=[a for a in args]
+	variables.reverse()
 	lines=[[]]
-	currentArg=0
 	currentLine=0
-	for directive in re.findall("\.|%\d+|\|[lcr<>^]|[\r\n]|[-_](?:\d+)?", format):
-		#print directive
-		if directive=='.':
-			variables.append(args[currentArg])
-			currentArg+=1
-		elif directive.startswith('%'):
-			variables.append(args[int(directive.strip("%"))])
-		elif directive in ("\r", "\n"):
+	currentCol=-1
+	for directive in re.findall("\.|\|(?:c(?:\d+)?)?[<>^]?|[\r\n]|[-_](?:\d+)?", format):
+		if directive in ("\r", "\n"):
 			lines.append([])
 			currentLine+=1
+			currentCol=-1
+		elif directive==".":
+			var=variables.pop()
+			lines[currentLine][currentCol]['contents'].append(('fixed', var))
+			if lines[currentLine][currentCol]['width'] is not None: lines[currentLine][currentCol]['width']+=len(var)
 		elif directive.startswith("|"):
-			lines[currentLine].append(('align', directive.strip("|")))
+			lines[currentLine].append({'width': 0, 'contents': []})
+			currentCol+=1
+			collapse, cpad, alignment=re.match("\|(c(\d+)?)?([<>^])?", directive).groups()
+			collapse=True if collapse else False
+			cpad=int(cpad) if cpad else 0
+			alignment=alignment if alignment else "<"
+			lines[currentLine][currentCol]['collapse']=collapse
+			lines[currentLine][currentCol]['cpad']=cpad
+			lines[currentLine][currentCol]['alignment']=alignment
 		elif len(directive) and directive[0] in ("-", "_"):
 			hrchar=directive[0]
 			directive=directive.strip("-_")
-			hrwidth=(100 if len(directive)==0 else int(directive))/100.0
-			lines[currentLine].append(('hr', hrchar, hrwidth))
-	variables.reverse()
+			if lines[currentLine][currentCol]['collapse']:
+				lines[currentLine][currentCol]['contents'].append(('fixed', hrchar*3))
+				lines[currentLine][currentCol]['width']+=3
+			else:
+				hrwidth=(100 if len(directive)==0 else int(directive))/100.0
+				lines[currentLine][currentCol]['contents'].append(('variable', hrchar, hrwidth))
+				lines[currentLine][currentCol]['width']=None
 	out_final=[]
 	for line in lines:
-		colwidth=int(int(consoleColumns)/len(line))
+		fixed_col_len=0
+		fixed_col_count=0
+		#Find the len of all collapsed columns in this line
+		for column in line:
+			if column['collapse']:
+				fixed_col_count+=1
+				fixed_col_len+=(column['width']+(column['cpad']*2))
+		#now, with the len of fixed columns+padding:
+		colwidth=int((int(consoleColumns)-fixed_col_len)/(len(line)-fixed_col_count))
 		out_temp=[]
-		for col in line:
-			if col[0]=="align":
-				align_char=alignment_chars[col[1]] if alignment_chars.has_key(col[1]) else col[1]
-				out_temp.append(str.format("{0: "+align_char+str(colwidth)+"."+str(colwidth)+"s}", variables.pop()))
-			elif col[0]=="hr":
-				out_temp.append(str.format("{0: ^"+str(colwidth)+"."+str(colwidth)+"s}", col[1]*int(col[2]*colwidth)))
+		for column in line:
+			col_temp=[]
+			if column['collapse']:
+				col_temp.append(" "*column['cpad'])
+			for obj in column['contents']:
+				if obj[0]=="fixed":
+					col_temp.append(obj[1])
+				elif obj[0]=="variable":
+					col_temp.append(obj[1]*int(obj[2]*colwidth))
+			if column['collapse']:
+				col_temp.append(" "*column['cpad'])
+			col_temp="".join(col_temp)
+			if not column['collapse']:
+				col_temp=str.format("{0: "+column['alignment']+str(colwidth)+"."+str(colwidth)+"s}", col_temp)
+			out_temp.append(col_temp)
 		out_final.append("".join(out_temp))
 	return "\n".join(out_final)
