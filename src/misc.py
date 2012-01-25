@@ -12,7 +12,7 @@ def time_local(tm=None):
 	tm=time.localtime(tm)
 	return time.mktime(tm)
 
-def print_aligned(format, *args):
+def align(format, *args):
 	"""Prints the supplied arguments as defined by the format string.
 
 The following characters have special meaning in the format string:
@@ -38,6 +38,8 @@ The following characters have special meaning in the format string:
 			columns.append(directive.strip("|"))
 	colwidth=int(int(consoleColumns)/len(columns))
 	variables.reverse()
+	out=[]
 	for col in columns:
 		align_char=alignment_chars[col] if alignment_chars.has_key(col) else col
-		print str.format("{0: "+align_char+str(colwidth)+"."+str(colwidth)+"s}", variables.pop()),
+		out.append(str.format("{0: "+align_char+str(colwidth)+"."+str(colwidth)+"s}", variables.pop()))
+	return "".join(out)
