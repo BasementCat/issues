@@ -135,7 +135,7 @@ Tags: %s
 			self.description
 			])
 
-i=Issue()
-i.edit()
-i.save()
-print i
+i=Issue.load('e8a2193dcf68d85f76ab56264d28580662179a1fd7e27ab187780f42')
+print misc.align("|-")
+print i.formatted()
+print misc.align("|_")
