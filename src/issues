@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
-import hashlib, json, os, subprocess, time, sys
+import hashlib, json, os, subprocess, sys, time
+import misc
 
 issueDir='./.issues/'
 userName=subprocess.check_output(['git', 'config', '--global', '--get', 'user.name']).strip()
@@ -28,8 +29,8 @@ class Issue(object):
 		self.priority=int(priority)
 		self.assignedTo=identity if assignedTo is None else assignedTo
 		self.tags=tags
-		self.created=time.time()
-		self.updated=time.time()
+		self.created=misc.time_utc()
+		self.updated=misc.time_utc()
 		self.id=None
 	
 	def genid(self):
@@ -41,7 +42,7 @@ class Issue(object):
 	def save(self):
 		if self.id is None:
 			self.genid()
-		self.updated=time.time()
+		self.updated=misc.time_utc()
 		try:
 			with open(issueDir+self.id, 'w') as f:
 				json.dump(self.__dict__, f, indent=4)
