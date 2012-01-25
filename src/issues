@@ -110,6 +110,30 @@ Tags: %s
 	def __str__(self):
 		return "Issue#%s"%(self.id,)
 	
+	def formatted(self):
+		"""self.title=title
+		self.description=description
+		self.author=identity if author is None else author
+		self.priority=int(priority)
+		self.assignedTo=identity if assignedTo is None else assignedTo
+		self.tags=tags
+		self.created=misc.time_utc()
+		self.updated=misc.time_utc()
+		self.id=None"""
+		return "\n".join([
+			misc.align("|c<.|<.", "[Pri: %d] "%(self.priority,), self.title),
+			misc.align("|c<.|<.|c<.|<.|c<.|<.",
+				"By: ", self.author,
+				"Reported: ", time.strftime("%Y-%m-%d %I:%M %p", time.localtime(misc.time_local(self.created))),
+				"Updated: ", time.strftime("%Y-%m-%d %I:%M %p", time.localtime(misc.time_local(self.updated)))
+			),
+			misc.align("|c<.|c<.|>.",
+				"Assignee: ", self.assignedTo,
+				"["+", ".join(self.tags)+"]"
+			),
+			"",
+			self.description
+			])
 
 i=Issue()
 i.edit()
