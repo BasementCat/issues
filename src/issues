@@ -108,15 +108,8 @@ Tags: %s
 		os.unlink(tempname)
 	
 	def __str__(self):
-		return """Issue #%s
-%s
-Reported by: %s
-Assigned to: %s
-Priority:    %d
-Tags:        %s
-
-%s
-"""%(self.id, self.title, self.author, self.assignedTo, int(self.priority), ", ".join(self.tags), self.description)
+		return "Issue#%s"%(self.id,)
+	
 
 i=Issue()
 i.edit()
