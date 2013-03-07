@@ -1,19 +1,124 @@
 #!/usr/bin/python
 
-import hashlib, json, os, subprocess, sys, time
+import hashlib, json, yaml, os, subprocess, sys, time, re
 import misc
 
+class Model(object):
+	def __init__(self, **kwargs):
+		self._data={}
+		for k,v in kwargs.items():
+			setattr(self, k, v)
+		for k in self._fields:
+			if k not in self._data:
+				self._data[k]=None
+
+	def __setattr__(self, k, v):
+		if k in self._fields:
+			self._data[k]=v
+		else:
+			super(Model, self).__setattr__(k, v)
+
+	def __getattr__(self, k):
+		if k in self._fields:
+			return self._data[k]
+		return super(Model, self).__getattr__(k)
+
+	def _asDict(self):
+		out={}
+		for k in self._fields:
+			v=getattr(self, k)
+			out[k]=v._asDict() if isinstance(v, Model) else v
+		return out
+
+	@staticmethod
+	def _dataType(fname, override=None):
+		if not override:
+			if re.search(r"\.ya?ml$", fname, re.I):
+				return "yaml"
+			elif re.search(r"\.js(on)?$", fname, re.I):
+				return "json"
+			else:
+				raise Exception("Cannot determine filetype from '%s'"%(fname,))
+		else:
+			return override
+
+	def save(self, toFile, asType=None):
+		with open(toFile, "w") as fp:
+			mod=getattr(sys.modules[__name__], self._dataType(toFile, asType))
+			if mod is yaml:
+				return mod.dump(self._asDict(), fp, default_flow_style=False, indent=4)
+			else:
+				return mod.dump(self._asDict(), fp, indent=4)
+
+	@classmethod
+	def load(self, fromFile, asType=None):
+		with open(fromFile, "r") as fp:
+			d=getattr(sys.modules[__name__], self._dataType(fromFile, asType)).load(fp)
+			return self(**d)
+
+class Config(Model):
+	_fields=("identity", "editor")
+
+	@staticmethod
+	def getGitIdentity():
+		try:
+			userName=subprocess.check_output(['git', 'config', '--global', '--get', 'user.name']).strip()
+			userEmail=subprocess.check_output(['git', 'config', '--global', '--get', 'user.email']).strip()
+			identity="%s <%s>"%(userName, userEmail)
+			return identity
+		except:
+			return ""
+
+	@staticmethod
+	def getManualIdentity():
+		name=raw_input("Your name: ")
+		email=raw_input("Your email: ")
+		return "%s <%s>"%(name, email)
+
+	@staticmethod
+	def getEditor():
+		if os.environ.has_key('EDITOR'):
+			return os.environ['EDITOR']
+		else:
+			try:
+				return subprocess.check_output(['git', 'config', '--global', '--get', 'core.editor']).strip()
+			except:
+				return 'vi'
+
 issueDir='./.issues/'
-userName=subprocess.check_output(['git', 'config', '--global', '--get', 'user.name']).strip()
-userEmail=subprocess.check_output(['git', 'config', '--global', '--get', 'user.email']).strip()
-identity="%s <%s>"%(userName, userEmail)
-if os.environ.has_key('EDITOR'):
-	editor=os.environ['EDITOR']
-else:
-	try:
-		editor=subprocess.check_output(['git', 'config', '--global', '--get', 'core.editor']).strip()
-	except:
-		editor='vi'
+issueConfig=os.path.expanduser('~/.issues-config.yml')
+try:
+	_config=Config.load(issueConfig)
+except:
+	_config=Config()
+	_config.save(issueConfig)
+
+def setup():
+	global _config
+	print "Step 1: Identity"
+	print "Git identity: \"%s\""%(Config.getGitIdentity(),)
+	print "Your current identity: \"%s\""%(_config.identity,)
+	identity=raw_input("Change identity? [Blank to use current, \"git\" or \"manual\"]: ")
+	if identity=="git":
+		_config.identity=Config.getGitIdentity()
+	elif identity=="manual":
+		_config.identity=Config.getManualIdentity()
+	else:
+		print "Identity not changed."
+
+	print "Step 2: Editor"
+	print "System editor: \"%s\""%(Config.getEditor(),)
+	print "Your editor: \"%s\""%(_config.editor,)
+	ed=raw_input("Use the system editor? [y/N]: ")
+	if ed=="y":
+		_config.editor=Config.getEditor()
+	else:
+		print "To change your editor, run \"EDITOR=/your/editor; %s setup\""%(sys.argv[0],)
+	_config.save(issueConfig)
+
+setup()
+sys.exit(0)
+
 if not os.path.exists(issueDir):
 	try:
 		os.makedirs(issueDir)
