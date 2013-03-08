@@ -3,6 +3,16 @@
 import hashlib, json, yaml, os, subprocess, sys, time, re
 import misc
 
+issueDir='./.issues/'
+issueConfig=os.path.expanduser('~/.issues-config.yml')
+
+commandList={}
+def command(commandName):
+	def commandInternal(callback):
+		commandList[commandName]=callback
+		return callback
+	return commandInternal
+
 class Model(object):
 	def __init__(self, **kwargs):
 		self._data={}
@@ -42,7 +52,7 @@ class Model(object):
 		else:
 			return override
 
-	def save(self, toFile, asType=None):
+	def saveToFile(self, toFile, asType=None):
 		with open(toFile, "w") as fp:
 			mod=getattr(sys.modules[__name__], self._dataType(toFile, asType))
 			if mod is yaml:
@@ -51,7 +61,7 @@ class Model(object):
 				return mod.dump(self._asDict(), fp, indent=4)
 
 	@classmethod
-	def load(self, fromFile, asType=None):
+	def loadFromFile(self, fromFile, asType=None):
 		with open(fromFile, "r") as fp:
 			d=getattr(sys.modules[__name__], self._dataType(fromFile, asType)).load(fp)
 			return self(**d)
@@ -85,58 +95,8 @@ class Config(Model):
 			except:
 				return 'vi'
 
-issueDir='./.issues/'
-issueConfig=os.path.expanduser('~/.issues-config.yml')
-try:
-	_config=Config.load(issueConfig)
-except:
-	_config=Config()
-	_config.save(issueConfig)
-
-def setup():
-	global _config
-	print "Step 1: Identity"
-	print "Git identity: \"%s\""%(Config.getGitIdentity(),)
-	print "Your current identity: \"%s\""%(_config.identity,)
-	identity=raw_input("Change identity? [Blank to use current, \"git\" or \"manual\"]: ")
-	if identity=="git":
-		_config.identity=Config.getGitIdentity()
-	elif identity=="manual":
-		_config.identity=Config.getManualIdentity()
-	else:
-		print "Identity not changed."
-
-	print "Step 2: Editor"
-	print "System editor: \"%s\""%(Config.getEditor(),)
-	print "Your editor: \"%s\""%(_config.editor,)
-	ed=raw_input("Use the system editor? [y/N]: ")
-	if ed=="y":
-		_config.editor=Config.getEditor()
-	else:
-		print "To change your editor, run \"EDITOR=/your/editor; %s setup\""%(sys.argv[0],)
-	_config.save(issueConfig)
-
-setup()
-sys.exit(0)
-
-if not os.path.exists(issueDir):
-	try:
-		os.makedirs(issueDir)
-	except Exception as e:
-		sys.stderr.write("Could not create issues directory %s: %s\n"%(issueDir, str(e)))
-		sys.exit(1)
-
 class Issue(object):
-	def __init__(self, title="", description="", author="", priority=0, assignedTo="", tags=[]):
-		self.title=title
-		self.description=description
-		self.author=identity if author is None else author
-		self.priority=int(priority)
-		self.assignedTo=identity if assignedTo is None else assignedTo
-		self.tags=tags
-		self.created=misc.time_utc()
-		self.updated=misc.time_utc()
-		self.id=None
+	_fields=("title", "description", "author", "priority", "assignedTo", "tags", "created", "updated", "_id")
 	
 	def genid(self):
 		while True:
@@ -240,7 +200,43 @@ Tags: %s
 			self.description
 			])
 
-i=Issue.load('e8a2193dcf68d85f76ab56264d28580662179a1fd7e27ab187780f42')
-print misc.align("|-")
-print i.formatted()
-print misc.align("|_")
+@command("setup")
+def setup():
+	global _config
+	print "Step 1: Identity"
+	print "Git identity: \"%s\""%(Config.getGitIdentity(),)
+	print "Your current identity: \"%s\""%(_config.identity,)
+	identity=raw_input("Change identity? [Blank to use current, \"git\" or \"manual\"]: ")
+	if identity=="git":
+		_config.identity=Config.getGitIdentity()
+	elif identity=="manual":
+		_config.identity=Config.getManualIdentity()
+	else:
+		print "Identity not changed."
+
+	print "Step 2: Editor"
+	print "System editor: \"%s\""%(Config.getEditor(),)
+	print "Your editor: \"%s\""%(_config.editor,)
+	ed=raw_input("Use the system editor? [y/N]: ")
+	if ed=="y":
+		_config.editor=Config.getEditor()
+	else:
+		print "To change your editor, run \"export EDITOR=/your/editor; %s setup\""%(sys.argv[0],)
+	_config.save(issueConfig)
+
+
+if __name__=="__main__":
+	try:
+		_config=Config.load(issueConfig)
+	except:
+		_config=Config()
+		_config.save(issueConfig)
+
+	if not os.path.exists(issueDir):
+		try:
+			os.makedirs(issueDir)
+		except Exception as e:
+			sys.stderr.write("Could not create issues directory %s: %s\n"%(issueDir, str(e)))
+			sys.exit(1)
+
+	commandList[sys.argv[1]]()
