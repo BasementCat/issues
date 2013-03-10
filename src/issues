@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import hashlib, json, yaml, os, subprocess, sys, time, re
+from datetime import datetime
 import misc
 
 issueDir='./.issues/'
@@ -84,19 +85,19 @@ class Config(Model):
 			except:
 				return 'vi'
 
-class Issue(object):
+class Issue(Model):
 	_fields=("title", "description", "author", "priority", "assignedTo", "tags", "created", "updated", "_id")
 	
 	def _genid(self):
 		while True:
-			self._id=hashlib.sha1(identity+str(time.clock())).hexdigest()
+			self._id=hashlib.sha1(_config.identity+str(time.clock())).hexdigest()
 			if not os.path.exists(issueDir+self._id):
 				break
 	
 	def save(self):
 		if self._id is None:
 			self._genid()
-		self.updated=misc.time_utc()
+		self.updated=datetime.utcnow()
 		self.saveToFile("%s%s.%s"%(issueDir, self._id, issueType))
 	
 	@classmethod
