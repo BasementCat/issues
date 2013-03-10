@@ -16,23 +16,11 @@ def command(commandName):
 
 class Model(object):
 	def __init__(self, **kwargs):
-		self._data={}
-		for k,v in kwargs.items():
-			setattr(self, k, v)
 		for k in self._fields:
-			if k not in self._data:
-				self._data[k]=None
-
-	def __setattr__(self, k, v):
-		if k in self._fields:
-			self._data[k]=v
-		else:
-			super(Model, self).__setattr__(k, v)
-
-	def __getattr__(self, k):
-		if k in self._fields:
-			return self._data[k]
-		return super(Model, self).__getattr__(k)
+			if k in kwargs:
+				setattr(self, k, kwargs[k])
+			else:
+				setattr(self, k, None)
 
 	def _asDict(self):
 		out={}
