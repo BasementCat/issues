@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import hashlib, json, yaml, os, subprocess, sys, time, re
+import hashlib, json, yaml, os, subprocess, sys, time, re, copy
 from datetime import datetime
 import misc
 
@@ -87,6 +87,12 @@ class Config(Model):
 
 class Issue(Model):
 	_fields=("title", "description", "author", "priority", "assignedTo", "tags", "created", "updated", "_id")
+
+	def __init__(self, **kwargs):
+		dfl={"title": "", "description": "", "author": _config.identity, "priority": 0, "tags": [], "created": datetime.utcnow()}
+		_dfl=dfl.copy()
+		_dfl.update(kwargs)
+		super(Issue, self).__init__(**_dfl)
 	
 	def _genid(self):
 		while True:
