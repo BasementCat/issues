@@ -212,6 +212,17 @@ def setup():
 		print "To change your editor, run \"export EDITOR=/your/editor; %s setup\""%(sys.argv[0],)
 	_config.saveToFile(issueConfig)
 
+@command("report")
+def reportIssue():
+	i=Issue()
+	i.edit()
+	if not i.description:
+		print "Can't report issue with no description"
+	elif not i.title:
+		print "Can't report issue with no title"
+	else:
+		i.save()
+		print "Created %s - \"%s\""%(i._id, i.title)
 
 if __name__=="__main__":
 	try:
