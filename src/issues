@@ -5,6 +5,7 @@ import misc
 
 issueDir='./.issues/'
 issueConfig=os.path.expanduser('~/.issues-config.yml')
+issueType="yaml"
 
 commandList={}
 def command(commandName):
@@ -98,29 +99,21 @@ class Config(Model):
 class Issue(object):
 	_fields=("title", "description", "author", "priority", "assignedTo", "tags", "created", "updated", "_id")
 	
-	def genid(self):
+	def _genid(self):
 		while True:
-			self.id=hashlib.sha224(identity+str(time.clock())).hexdigest()
-			if not os.path.exists(issueDir+self.id):
+			self._id=hashlib.sha1(identity+str(time.clock())).hexdigest()
+			if not os.path.exists(issueDir+self._id):
 				break
 	
 	def save(self):
-		if self.id is None:
-			self.genid()
+		if self._id is None:
+			self._genid()
 		self.updated=misc.time_utc()
-		try:
-			with open(issueDir+self.id, 'w') as f:
-				json.dump(self.__dict__, f, indent=4)
-			return True
-		except Exception as e:
-			sys.stderr.write("Cannot save to %s: %s\n"%(issueDir+self.id, str(e)))
-			return False
+		self.saveToFile("%s%s.%s"%(issueDir, self._id, issueType))
 	
 	@classmethod
 	def load(self, idno):
-		new=Issue()
-		with open(issueDir+idno, 'r') as f:
-			new.__dict__=json.load(f)
+		new=self.loadFromFile("%s%s.%s"%(issueDir, idno, issueType))
 		new.priority=int(new.priority)
 		return new
 
@@ -222,15 +215,15 @@ def setup():
 		_config.editor=Config.getEditor()
 	else:
 		print "To change your editor, run \"export EDITOR=/your/editor; %s setup\""%(sys.argv[0],)
-	_config.save(issueConfig)
+	_config.saveToFile(issueConfig)
 
 
 if __name__=="__main__":
 	try:
-		_config=Config.load(issueConfig)
+		_config=Config.loadFromFile(issueConfig)
 	except:
 		_config=Config()
-		_config.save(issueConfig)
+		_config.saveToFile(issueConfig)
 
 	if not os.path.exists(issueDir):
 		try:
