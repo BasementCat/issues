@@ -122,7 +122,7 @@ Tags: %s
 #Lines beginning with # are ignored.
 #The first line of your report is the title.
 #All following lines are the description of the report."""%(self.title, self.description, self.author, self.assignedTo, self.priority, ", ".join(self.tags)))
-		subprocess.call([editor, tempname])
+		subprocess.call([_config.editor, tempname])
 		with open(tempname, 'r') as f:
 			haveTitle=False
 			haveDesc=False
