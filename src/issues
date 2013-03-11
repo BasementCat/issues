@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import hashlib, json, yaml, os, subprocess, sys, time, re, copy
+import hashlib, json, yaml, os, subprocess, sys, time, re, copy, glob
 from datetime import datetime
 import misc
 
@@ -161,7 +161,7 @@ Tags: %s
 		os.unlink(tempname)
 	
 	def __str__(self):
-		return "Issue#%s"%(self.id,)
+		return "Issue#%s"%(self._id,)
 	
 	def formatted(self):
 		"""self.title=title
@@ -177,8 +177,10 @@ Tags: %s
 			misc.align("|c<.|<.", "[Pri: %d] "%(self.priority,), self.title),
 			misc.align("|c<.|<.|c<.|<.|c<.|<.",
 				"By: ", self.author,
-				"Reported: ", time.strftime("%Y-%m-%d %I:%M %p", time.localtime(misc.time_local(self.created))),
-				"Updated: ", time.strftime("%Y-%m-%d %I:%M %p", time.localtime(misc.time_local(self.updated)))
+				# "Reported: ", time.strftime("%Y-%m-%d %I:%M %p", time.localtime(misc.time_local(self.created))),
+				# "Updated: ", time.strftime("%Y-%m-%d %I:%M %p", time.localtime(misc.time_local(self.updated)))
+				"Reported: ", str(self.created),
+				"Updated: ", str(self.updated)
 			),
 			misc.align("|c<.|c<.|>.",
 				"Assignee: ", self.assignedTo,
@@ -187,6 +189,14 @@ Tags: %s
 			"",
 			self.description
 			])
+
+	@classmethod
+	def getAll(self):
+		allIssues=[]
+		for fn in glob.glob(issueDir+"*."+issueType):
+			if os.path.isfile(fn):
+				allIssues.append(self.load(re.sub(r"\."+issueType+r"$", "", os.path.basename(fn))))
+		return allIssues
 
 @command("setup")
 def setup():
@@ -223,6 +233,11 @@ def reportIssue():
 	else:
 		i.save()
 		print "Created %s - \"%s\""%(i._id, i.title)
+
+@command("list")
+def listAllIssues():
+	for i in sorted(Issue.getAll(), key=lambda i: i.priority, reverse=True):
+		print "%s - %s (Updated %s, Pri %d, #%s)"%(i.created, i.title, i.updated, i.priority, i._id)
 
 if __name__=="__main__":
 	try:
